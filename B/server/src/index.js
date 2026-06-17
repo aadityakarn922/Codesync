@@ -1,4 +1,4 @@
-require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
+require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
@@ -18,9 +18,15 @@ app.use(cors({
 }));
 
 app.use(express.json());
-connectDB()
-  .then(() => console.log("DB ready"))
-  .catch((err) => console.error("DB failed", err));
+(async () => {
+  try {
+    await connectDB();
+    console.log("DB ready");
+  } catch (err) {
+    console.error("DB failed", err);
+    process.exit(1);
+  }
+})();
 
 // Home Route
 app.get("/", (req, res) => {
