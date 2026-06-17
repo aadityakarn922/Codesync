@@ -9,7 +9,7 @@ const Room = require("./models/room");
 
 const app = express();
 
-const cors = require("cors");
+
 
 app.use(cors({
   origin: "https://codesync-ofbq.vercel.app",
