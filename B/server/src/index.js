@@ -9,14 +9,15 @@ const Room = require("./models/room");
 
 const app = express();
 
+const cors = require("cors");
+
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://codesync-ofbq.vercel.app/"
-  ],
-  methods: ["GET", "POST"],
-  credentials: true
+  origin: "https://codesync-ofbq.vercel.app",
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
 }));
+
+app.options("*", cors());
 app.use(express.json());
 
 connectDB();
