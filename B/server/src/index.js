@@ -20,7 +20,7 @@ app.use(cors({
 app.use(express.json());
 
 connectDB();
-then(() => console.log("DB ready"))
+ .then(() => console.log("DB ready"))
   .catch((err) => console.error("DB failed", err));
 
 // Home Route
