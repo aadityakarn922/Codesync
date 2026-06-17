@@ -24,13 +24,22 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+let useInMemoryRooms = false;
+const inMemoryRooms = new Map();
+
 (async () => {
   try {
-    await connectDB();
-    console.log("DB ready");
+    const connected = await connectDB();
+    if (!connected) {
+      useInMemoryRooms = true;
+      console.warn("Running with in-memory room storage. Data will not persist across restarts.");
+    } else {
+      console.log("DB ready");
+    }
   } catch (err) {
     console.error("DB failed", err);
-    process.exit(1);
+    useInMemoryRooms = true;
   }
 })();
 
@@ -53,13 +62,23 @@ app.post("/room", async (req, res) => {
       return res.status(400).json({ error: "roomId missing" });
     }
 
-    let room = await Room.findOne({ roomId });
+    let room;
+    if (useInMemoryRooms) {
+      room = inMemoryRooms.get(roomId);
+    } else {
+      room = await Room.findOne({ roomId });
+    }
 
     console.log("🔍 Room found:", room);
 
     if (!room) {
       console.log("🆕 Creating room");
-      room = await Room.create({ roomId, code: "" });
+      if (useInMemoryRooms) {
+        room = { roomId, code: "", language: "javascript" };
+        inMemoryRooms.set(roomId, room);
+      } else {
+        room = await Room.create({ roomId, code: "" });
+      }
     }
 
     console.log("✅ Room success:", room);
@@ -77,17 +96,28 @@ app.post("/code", async (req, res) => {
   try {
     const { roomId, code, language } = req.body;
 
-    await Room.findOneAndUpdate(
-      { roomId },
-      {
-        code,
-        language,
-      },
-      {
-        new: true,
-        upsert: true,
-      }
-    );
+    if (useInMemoryRooms) {
+      const existing = inMemoryRooms.get(roomId) || {
+        roomId,
+        code: "",
+        language: "javascript",
+      };
+      existing.code = code;
+      existing.language = language;
+      inMemoryRooms.set(roomId, existing);
+    } else {
+      await Room.findOneAndUpdate(
+        { roomId },
+        {
+          code,
+          language,
+        },
+        {
+          new: true,
+          upsert: true,
+        }
+      );
+    }
 
     res.json({
       success: true,
@@ -103,6 +133,20 @@ app.post("/code", async (req, res) => {
 // Get Code + Language
 app.get("/code/:roomId", async (req, res) => {
   try {
+    if (useInMemoryRooms) {
+      const room = inMemoryRooms.get(req.params.roomId);
+      if (!room) {
+        return res.json({
+          code: "",
+          language: "javascript",
+        });
+      }
+      return res.json({
+        code: room.code,
+        language: room.language,
+      });
+    }
+
     const room = await Room.findOne({
       roomId: req.params.roomId,
     });
