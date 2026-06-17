@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 import MonacoEditor from "@monaco-editor/react";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL || "https://codesync-pkuf.onrender.com";
 
 const LANGUAGES = ["javascript"];
 

@@ -9,12 +9,18 @@ const Room = require("./models/room");
 
 const app = express();
 
-
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173,https://codesync-pkuf.onrender.com,https://codesync-ofbq.vercel.app").split(",");
 
 app.use(cors({
-  origin: "https://codesync-ofbq.vercel.app",
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("CORS policy does not allow access from this origin."));
+  },
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type"],
+  credentials: true,
 }));
 
 app.use(express.json());
