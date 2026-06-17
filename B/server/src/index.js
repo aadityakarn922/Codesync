@@ -9,7 +9,7 @@ const Room = require("./models/room");
 
 const app = express();
 
-const cors = require("cors");
+
 
 app.use(cors({
   origin: "https://codesync-ofbq.vercel.app",
@@ -17,7 +17,6 @@ app.use(cors({
   allowedHeaders: ["Content-Type"],
 }));
 
-app.options("*", cors());
 app.use(express.json());
 
 connectDB();
