@@ -12,7 +12,7 @@ function Home()
             await axios.post(`${API_URL}/room`,{
               roomId,
             })
-            window.location.href=`/editor/${roomId}`
+            window.location.href=`/#/editor/${roomId}`
         }
         catch(err)
         {
