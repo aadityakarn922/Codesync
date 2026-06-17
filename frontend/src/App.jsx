@@ -1,16 +1,16 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/home";
 import CodeEditor from "./pages/editor"
 import "./App.css";
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/editor/:roomId" element={<CodeEditor />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
