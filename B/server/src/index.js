@@ -35,24 +35,33 @@ app.get("/", (req, res) => {
 
 // Create / Join Room
 app.post("/room", async (req, res) => {
+  console.log("🔥 ROOM API HIT");
+
   try {
     console.log("BODY:", req.body);
 
     const { roomId } = req.body;
 
     if (!roomId) {
+      console.log("❌ No roomId received");
       return res.status(400).json({ error: "roomId missing" });
     }
 
     let room = await Room.findOne({ roomId });
 
+    console.log("🔍 Room found:", room);
+
     if (!room) {
+      console.log("🆕 Creating room");
       room = await Room.create({ roomId, code: "" });
     }
 
+    console.log("✅ Room success:", room);
+
     res.json(room);
+
   } catch (err) {
-    console.error("ROOM ERROR:", err);
+    console.log("🔥 ROOM ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
