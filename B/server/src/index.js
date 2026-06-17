@@ -29,24 +29,24 @@ app.get("/", (req, res) => {
 // Create / Join Room
 app.post("/room", async (req, res) => {
   try {
+    console.log("BODY:", req.body);
+
     const { roomId } = req.body;
+
+    if (!roomId) {
+      return res.status(400).json({ error: "roomId missing" });
+    }
 
     let room = await Room.findOne({ roomId });
 
     if (!room) {
-      room = await Room.create({
-        roomId,
-        code: "",
-        language: "javascript",
-      });
+      room = await Room.create({ roomId, code: "" });
     }
 
     res.json(room);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      error: "Failed to create room",
-    });
+    console.error("ROOM ERROR:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
