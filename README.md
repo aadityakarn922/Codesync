@@ -33,12 +33,4 @@ Express.js
 
 MongoDB + Mongoose
 
-VM module (code execution)
 
-Deployment:
-
-Frontend → Vercel
-
-Backend → Render
-
-⚙️ Backend: https://codesync-pkuf.onrender.com
