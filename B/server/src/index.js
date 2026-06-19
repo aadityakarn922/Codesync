@@ -48,7 +48,7 @@ app.get("/", (req, res) => {
   res.send("working");
 });
 
-// Create / Join Room
+
 app.post("/room", async (req, res) => {
   console.log("ROOM API HIT");
 
@@ -130,7 +130,7 @@ app.post("/code", async (req, res) => {
   }
 });
 
-// Get Code + Language
+
 app.get("/code/:roomId", async (req, res) => {
   try {
     if (useInMemoryRooms) {
@@ -170,7 +170,7 @@ app.get("/code/:roomId", async (req, res) => {
   }
 });
 
-// Run JavaScript code only
+
 app.post("/run", async (req, res) => {
   try {
     const { language, code } = req.body;
