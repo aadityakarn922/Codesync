@@ -50,7 +50,7 @@ app.get("/", (req, res) => {
 
 // Create / Join Room
 app.post("/room", async (req, res) => {
-  console.log("🔥 ROOM API HIT");
+  console.log("ROOM API HIT");
 
   try {
     console.log("BODY:", req.body);
@@ -58,7 +58,7 @@ app.post("/room", async (req, res) => {
     const { roomId } = req.body;
 
     if (!roomId) {
-      console.log("❌ No roomId received");
+      console.log("No roomId received");
       return res.status(400).json({ error: "roomId missing" });
     }
 
@@ -69,10 +69,10 @@ app.post("/room", async (req, res) => {
       room = await Room.findOne({ roomId });
     }
 
-    console.log("🔍 Room found:", room);
+    console.log(" Room found:", room);
 
     if (!room) {
-      console.log("🆕 Creating room");
+      console.log(" Creating room");
       if (useInMemoryRooms) {
         room = { roomId, code: "", language: "javascript" };
         inMemoryRooms.set(roomId, room);
@@ -81,12 +81,12 @@ app.post("/room", async (req, res) => {
       }
     }
 
-    console.log("✅ Room success:", room);
+    console.log("Room success:", room);
 
     res.json(room);
 
   } catch (err) {
-    console.log("🔥 ROOM ERROR:", err);
+    console.log(" ROOM ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
