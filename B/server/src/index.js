@@ -1,6 +1,8 @@
 require("dotenv").config();
 
 const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
 const cors = require("cors");
 const vm = require("vm");
 
@@ -8,6 +10,7 @@ const connectDB = require("./db/connection");
 const Room = require("./models/room");
 
 const app = express();
+const server = http.createServer(app);
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173,https://codesync-pkuf.onrender.com,https://codesync-ofbq.vercel.app").split(",");
 
@@ -24,6 +27,19 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+const io = new Server(server, {
+  cors: {
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("CORS policy does not allow access from this origin."));
+    },
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
 
 let useInMemoryRooms = false;
 const inMemoryRooms = new Map();
@@ -50,40 +66,16 @@ app.get("/", (req, res) => {
 
 
 app.post("/room", async (req, res) => {
-  console.log("ROOM API HIT");
-
   try {
-    console.log("BODY:", req.body);
-
     const { roomId } = req.body;
 
     if (!roomId) {
-      console.log("No roomId received");
       return res.status(400).json({ error: "roomId missing" });
     }
 
-    let room;
-    if (useInMemoryRooms) {
-      room = inMemoryRooms.get(roomId);
-    } else {
-      room = await Room.findOne({ roomId });
-    }
+    await setRoomState(roomId, {});
 
-    console.log(" Room found:", room);
-
-    if (!room) {
-      console.log(" Creating room");
-      if (useInMemoryRooms) {
-        room = { roomId, code: "", language: "javascript" };
-        inMemoryRooms.set(roomId, room);
-      } else {
-        room = await Room.create({ roomId, code: "" });
-      }
-    }
-
-    console.log("Room success:", room);
-
-    res.json(room);
+    res.json({ roomId, success: true });
 
   } catch (err) {
     console.log(" ROOM ERROR:", err);
@@ -95,29 +87,9 @@ app.post("/room", async (req, res) => {
 app.post("/code", async (req, res) => {
   try {
     const { roomId, code, language } = req.body;
+    if (!roomId) return res.status(400).json({ error: "roomId missing" });
 
-    if (useInMemoryRooms) {
-      const existing = inMemoryRooms.get(roomId) || {
-        roomId,
-        code: "",
-        language: "javascript",
-      };
-      existing.code = code;
-      existing.language = language;
-      inMemoryRooms.set(roomId, existing);
-    } else {
-      await Room.findOneAndUpdate(
-        { roomId },
-        {
-          code,
-          language,
-        },
-        {
-          new: true,
-          upsert: true,
-        }
-      );
-    }
+    await setRoomState(roomId, { code, language });
 
     res.json({
       success: true,
@@ -133,23 +105,7 @@ app.post("/code", async (req, res) => {
 
 app.get("/code/:roomId", async (req, res) => {
   try {
-    if (useInMemoryRooms) {
-      const room = inMemoryRooms.get(req.params.roomId);
-      if (!room) {
-        return res.json({
-          code: "",
-          language: "javascript",
-        });
-      }
-      return res.json({
-        code: room.code,
-        language: room.language,
-      });
-    }
-
-    const room = await Room.findOne({
-      roomId: req.params.roomId,
-    });
+    const room = await getRoomState(req.params.roomId);
 
     if (!room) {
       return res.json({
@@ -210,8 +166,137 @@ app.post("/run", async (req, res) => {
   }
 });
 
+// --- Shared room state helper ---
+async function getRoomState(roomId) {
+  if (useInMemoryRooms) {
+    return inMemoryRooms.get(roomId) || null;
+  }
+  return Room.findOne({ roomId });
+}
+
+async function setRoomState(roomId, patch) {
+  if (useInMemoryRooms) {
+    const existing = inMemoryRooms.get(roomId) || { roomId, code: "", language: "javascript" };
+    Object.assign(existing, patch);
+    inMemoryRooms.set(roomId, existing);
+    return existing;
+  }
+  return Room.findOneAndUpdate(
+    { roomId },
+    { ...patch, language: patch.language || "javascript" },
+    { new: true, upsert: true }
+  );
+}
+
+// --- Socket.IO real-time collaboration ---
+
+const clientsInRoom = new Map(); // roomId -> Set(socket.id)
+
+function roomPresence(roomId) {
+  return clientsInRoom.get(roomId)?.size ?? 0;
+}
+
+function broadcastPresence(roomId) {
+  io.to(roomId).emit("presence", { count: roomPresence(roomId) });
+}
+
+io.on("connection", (socket) => {
+  let currentRoom = null;
+
+  const emitRoomCode = (roomId) => {
+    getRoomState(roomId).then((room) => {
+      socket.emit("room-code", {
+        code: room?.code || "",
+        language: room?.language || "javascript",
+        source: "initial",
+      });
+    });
+  };
+
+  socket.on("join-room", ({ roomId }) => {
+    if (!roomId) return;
+
+    if (currentRoom && currentRoom !== roomId) {
+      clientsInRoom.get(currentRoom)?.delete(socket.id);
+      socket.leave(currentRoom);
+      broadcastPresence(currentRoom);
+    }
+
+    currentRoom = roomId;
+    socket.join(roomId);
+
+    if (!clientsInRoom.has(roomId)) clientsInRoom.set(roomId, new Set());
+    clientsInRoom.get(roomId).add(socket.id);
+
+    console.log(`Socket ${socket.id} joined room ${roomId}`);
+
+    // Ensure the room exists
+    setRoomState(roomId, {})
+      .then(() => {
+        emitRoomCode(roomId);
+        broadcastPresence(roomId);
+      })
+      .catch((err) => console.error("Failed to ensure room:", err));
+  });
+
+  socket.on("room-code-request", () => {
+    if (currentRoom) emitRoomCode(currentRoom);
+  });
+
+  socket.on("code-change", async ({ roomId, code }) => {
+    if (!roomId) return;
+    try {
+      await setRoomState(roomId, { code });
+      socket.broadcast.to(roomId).emit("code-change", { code });
+    } catch (err) {
+      console.error("Failed to persist code:", err);
+    }
+  });
+
+  socket.on("run-code", async ({ code, language, requestId }) => {
+    const lang = language || "javascript";
+    const respond = (payload) => socket.emit("run-result", { requestId, ...payload });
+
+    if (lang !== "javascript") {
+      return respond({ output: "Only JavaScript execution is supported in this mode." });
+    }
+
+    const outputLines = [];
+    const sandbox = {
+      console: {
+        log: (...args) => outputLines.push(args.map((item) => String(item)).join(" ")),
+        error: (...args) => outputLines.push(args.map((item) => String(item)).join(" ")),
+        warn: (...args) => outputLines.push(args.map((item) => String(item)).join(" ")),
+      },
+      setTimeout,
+      setInterval,
+      clearTimeout,
+      clearInterval,
+    };
+
+    try {
+      const context = vm.createContext(sandbox);
+      const script = new vm.Script(code, { timeout: 1000, filename: "user-code.js" });
+      script.runInContext(context, { timeout: 1000 });
+
+      respond({ output: outputLines.length ? outputLines.join("\n") : "(No output)" });
+    } catch (err) {
+      respond({ output: `Error running code: ${err.message}` });
+    }
+  });
+
+  socket.on("disconnect", () => {
+    if (currentRoom && clientsInRoom.has(currentRoom)) {
+      clientsInRoom.get(currentRoom).delete(socket.id);
+      if (clientsInRoom.get(currentRoom).size === 0) clientsInRoom.delete(currentRoom);
+      broadcastPresence(currentRoom);
+      console.log(`Socket ${socket.id} left room ${currentRoom}`);
+    }
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`server is running on port ${PORT}`);
 });
