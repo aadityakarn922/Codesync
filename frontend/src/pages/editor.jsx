@@ -6,13 +6,13 @@ import { io } from "socket.io-client";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://codesync-pkuf.onrender.com";
 
-const LANGUAGES = ["javascript"];
+const LANGUAGES = ["javascript", "python"];
 
 function CodeEditor() {
   const { roomId } = useParams();
   const navigate = useNavigate();
 
-  const [language] = useState("javascript");
+  const [language, setLanguage] = useState("javascript");
   const [runOutput, setRunOutput] = useState("");
   const [running, setRunning] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -54,12 +54,12 @@ function CodeEditor() {
       socketRef.current.once("run-result", onResult);
       socketRef.current.emit("run-code", {
         code,
-        language: "javascript",
+        language,
         requestId,
       });
     } else {
       try {
-        const res = await axios.post(`${API_URL}/run`, { language: "javascript", code });
+        const res = await axios.post(`${API_URL}/run`, { language, code });
         setRunOutput(res.data?.output ?? "(No output)");
       } catch (err) {
         const errorMessage = err.response?.data?.output || err.message;
@@ -68,7 +68,7 @@ function CodeEditor() {
         setRunning(false);
       }
     }
-  }, []);
+  }, [language]);
 
   // Copy invite link
   const copyLink = async () => {
@@ -123,10 +123,12 @@ function CodeEditor() {
     socket.on("room-code", (data) => {
       if (data?.source === "initial") {
         const value = data.code ?? "";
+        const lang = data.language || "javascript";
         // If the user already started typing before the initial sync lands,
         // keep their local edits.
         if (!typedRef.current) {
           syncingRef.current = true;
+          if (LANGUAGES.includes(lang)) setLanguage(lang);
           codeRef.current = value;
           editorRef.current?.setValue(value);
           syncingRef.current = false;
@@ -241,8 +243,23 @@ function CodeEditor() {
         <section className="editor-column">
           <div className="controls">
             <label className="muted">Language:</label>
-            <select className={`lang-select ${connected ? "" : "offline"}`} value={language} disabled>
-              <option value="javascript">JavaScript</option>
+            <select
+              className={`lang-select ${connected ? "" : "offline"}`}
+              value={language}
+              onChange={(e) => {
+                const newLang = e.target.value;
+                setLanguage(newLang);
+                if (editorRef.current) editorRef.current.setValue("");
+                if (socketRef.current?.connected) {
+                  socketRef.current.emit("code-change", { roomId, code: "", language: newLang });
+                }
+              }}
+            >
+              {LANGUAGES.map((lang) => (
+                <option key={lang} value={lang}>
+                  {lang === "javascript" ? "JavaScript" : "Python"}
+                </option>
+              ))}
             </select>
 
             <div className="controls-spacer" />

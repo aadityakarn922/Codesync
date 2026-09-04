@@ -5,6 +5,9 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const vm = require("vm");
+const { execSync } = require("child_process");
+const { mkdirSync, writeFileSync, rmSync } = require("fs");
+const { join } = require("path");
 
 const connectDB = require("./db/connection");
 const Room = require("./models/room");
@@ -131,9 +134,13 @@ app.post("/run", async (req, res) => {
   try {
     const { language, code } = req.body;
 
+    if (language === "python" || language === "py") {
+      return res.json({ output: runPython(code) });
+    }
+
     if (language !== "javascript") {
       return res.json({
-        output: "Only JavaScript execution is supported in this mode.",
+        output: "Only JavaScript and Python execution are supported.",
       });
     }
 
@@ -165,6 +172,53 @@ app.post("/run", async (req, res) => {
     });
   }
 });
+
+// --- Python execution helper ---
+const PY_MAX_CHARS = 20000;
+const PY_MAX_LINES = 2000;
+const PY_TIMEOUT_MS = 4000;
+
+function runPython(code) {
+  const dir = join(require("os").tmpdir(), "codesync-run-" + Date.now());
+  const file = join(dir, "main.py");
+
+  const truncatedCode = code.length > PY_MAX_CHARS ? code.slice(0, PY_MAX_CHARS) : code;
+
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(file, truncatedCode, "utf8");
+
+    const stdout = execSync(`python3 "${file}"`, {
+      timeout: PY_TIMEOUT_MS,
+      maxBuffer: 1 << 20,
+    }).toString("utf8");
+
+    return limitOutput(stdout);
+  } catch (err) {
+    if (err.timedOut) {
+      return "Error: Execution timed out (max 4s).";
+    }
+
+    // Python tracebacks reference the temp file path — clean it up.
+    const cleanTraceback = (err.stderr ? err.stderr.toString("utf8") : err.message)
+      .split("\n")
+      .filter((line) => !line.includes(dir))
+      .join("\n")
+      .replace(file, "main.py");
+
+    return limitOutput(cleanTraceback.trim() || `Error running code: ${cleanTraceback}`);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
+}
+
+function limitOutput(text) {
+  const lines = text.split("\n");
+  const output = lines.length > PY_MAX_LINES
+    ? lines.slice(0, PY_MAX_LINES).join("\n") + "\n...(output truncated)"
+    : text;
+  return output.trim() === "" ? "(No output)" : output;
+}
 
 // --- Shared room state helper ---
 async function getRoomState(roomId) {
@@ -243,10 +297,12 @@ io.on("connection", (socket) => {
     if (currentRoom) emitRoomCode(currentRoom);
   });
 
-  socket.on("code-change", async ({ roomId, code }) => {
+  socket.on("code-change", async ({ roomId, code, language }) => {
     if (!roomId) return;
     try {
-      await setRoomState(roomId, { code });
+      const patch = { code };
+      if (language) patch.language = language;
+      await setRoomState(roomId, patch);
       socket.broadcast.to(roomId).emit("code-change", { code });
     } catch (err) {
       console.error("Failed to persist code:", err);
@@ -257,8 +313,12 @@ io.on("connection", (socket) => {
     const lang = language || "javascript";
     const respond = (payload) => socket.emit("run-result", { requestId, ...payload });
 
+    if (lang === "python" || lang === "py") {
+      return respond({ output: runPython(code) });
+    }
+
     if (lang !== "javascript") {
-      return respond({ output: "Only JavaScript execution is supported in this mode." });
+      return respond({ output: "Only JavaScript and Python execution are supported." });
     }
 
     const outputLines = [];
