@@ -80,7 +80,7 @@ function Home() {
           CodeSync<span className="dot">.</span>
         </h1>
         <p className="subtitle">
-          Write JavaScript together in a shared room. Live sync, instant run, zero lag.
+          Write JavaScript or Python together in a shared room. Live sync, instant run, zero lag.
         </p>
       </div>
 
@@ -140,7 +140,7 @@ function Home() {
         </div>
         <div className="feature">
           <span className="feature-icon">▶</span>
-          <b>Run JavaScript</b>
+          <b>Run JavaScript &amp; Python</b>
           <span>Execute code right in the room with Ctrl+Enter.</span>
         </div>
       </div>
