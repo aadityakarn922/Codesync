@@ -144,10 +144,6 @@ function Home() {
           <span>Execute code right in the room with Ctrl+Enter.</span>
         </div>
       </div>
-
-      <footer className="home-footer">
-        Powered by React + Vite, Express + Socket.IO, MongoDB
-      </footer>
     </div>
   );
 }

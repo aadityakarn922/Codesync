@@ -461,13 +461,6 @@ kbd {
 .feature b { font-size: 14px; }
 .feature span { font-size: 13px; color: var(--muted); line-height: 1.5; }
 
-.home-footer {
-  margin-top: auto;
-  padding-top: 40px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
 /* ---------- RESPONSIVE ---------- */
 @media (max-width: 900px) {
   .editor-main { flex-direction: column; overflow-y: auto; }
