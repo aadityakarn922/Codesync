@@ -94,9 +94,19 @@ function CodeEditor() {
     return () => window.removeEventListener("keydown", handler);
   }, [runCode]);
 
-  // Keyboard shortcut: 'c' to toggle toolbar visibility
+  // Keyboard shortcut: 'c' to toggle toolbar visibility (when not typing in input fields)
   useEffect(() => {
     const handler = (e) => {
+      // Ignore if typing in input, textarea, or contenteditable element
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
       if (e.key === "c" || e.key === "C") {
         setToolbarVisible(!toolbarVisible);
       }
