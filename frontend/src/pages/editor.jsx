@@ -21,7 +21,6 @@ function CodeEditor() {
   const [autoRun, setAutoRun] = useState(false);
   const [toast, setToast] = useState("");
   const [editorReady, setEditorReady] = useState(false);
-  const [toolbarVisible, setToolbarVisible] = useState(true);
 
   const editorRef = useRef(null);
   const socketRef = useRef(null);
@@ -94,26 +93,6 @@ function CodeEditor() {
     return () => window.removeEventListener("keydown", handler);
   }, [runCode]);
 
-  // Keyboard shortcut: 'c' to toggle toolbar visibility (when not typing in input fields)
-  useEffect(() => {
-    const handler = (e) => {
-      // Ignore if typing in input, textarea, or contenteditable element
-      const target = e.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
-        return;
-      }
-
-      if (e.key === "c" || e.key === "C") {
-        setToolbarVisible(!toolbarVisible);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [toolbarVisible]);
 
   // Auto-run
   useEffect(() => {
@@ -263,39 +242,37 @@ function CodeEditor() {
       <div className="editor-main">
         {/* Editor Section */}
         <section className="editor-column">
-          {toolbarVisible && (
-            <div className="controls">
-              <label className="muted">Language:</label>
-              <select
-                className={`lang-select ${connected ? "" : "offline"}`}
-                value={language}
-                onChange={(e) => {
-                  const newLang = e.target.value;
-                  setLanguage(newLang);
-                  if (editorRef.current) editorRef.current.setValue("");
-                  if (socketRef.current?.connected) {
-                    socketRef.current.emit("code-change", { roomId, code: "", language: newLang });
-                  }
-                }}
-              >
-                {LANGUAGES.map((lang) => (
-                  <option key={lang} value={lang}>
-                    {lang === "javascript" ? "JavaScript" : "Python"}
-                  </option>
-                ))}
-              </select>
+          <div className="controls">
+            <label className="muted">Language:</label>
+            <select
+              className={`lang-select ${connected ? "" : "offline"}`}
+              value={language}
+              onChange={(e) => {
+                const newLang = e.target.value;
+                setLanguage(newLang);
+                if (editorRef.current) editorRef.current.setValue("");
+                if (socketRef.current?.connected) {
+                  socketRef.current.emit("code-change", { roomId, code: "", language: newLang });
+                }
+              }}
+            >
+              {LANGUAGES.map((lang) => (
+                <option key={lang} value={lang}>
+                  {lang === "javascript" ? "JavaScript" : "Python"}
+                </option>
+              ))}
+            </select>
 
-              <div className="controls-spacer" />
+            <div className="controls-spacer" />
 
-              <span className="shortcut-hint">
-                <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to run
-              </span>
+            <span className="shortcut-hint">
+              <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to run
+            </span>
 
-              <button className="run-btn" onClick={runCode} disabled={running}>
-                {running ? "Running…" : "▶ Run"}
-              </button>
-            </div>
-          )}
+            <button className="run-btn" onClick={runCode} disabled={running}>
+              {running ? "Running…" : "▶ Run"}
+            </button>
+          </div>
 
           <div className={`editor-wrapper ${editorReady ? "ready" : ""}`}>
             <MonacoEditor
