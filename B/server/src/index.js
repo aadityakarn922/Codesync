@@ -230,16 +230,42 @@ async function getRoomState(roomId) {
 
 async function setRoomState(roomId, patch) {
   if (useInMemoryRooms) {
-    const existing = inMemoryRooms.get(roomId) || { roomId, code: "", language: "javascript" };
+    const existing = inMemoryRooms.get(roomId) || { roomId: roomId, code: "", language: "javascript" };
     Object.assign(existing, patch);
     inMemoryRooms.set(roomId, existing);
     return existing;
   }
-  return Room.findOneAndUpdate(
-    { roomId },
-    { ...patch, language: patch.language || "javascript" },
-    { new: true, upsert: true }
-  );
+
+  // Optimization: if we're setting room state with empty or minimal patch,
+  // and we know the roomId is newly generated (low collision probability),
+  // we can try insert first for better performance
+  const update = { ...patch };
+  if (patch.language === undefined) {
+    update.language = "javascript";
+  }
+  if (patch.code === undefined) {
+    update.code = "";
+  }
+
+  // Ensure roomId is set in the update document
+  update.roomId = roomId;
+
+  try {
+    // Try to insert first - faster if room doesn't exist (expected case)
+    const result = await Room.create(update);
+    return result;
+  } catch (err) {
+    // If duplicate key error, room already exists, so update it
+    if (err.code === 11000) { // Duplicate key error
+      return Room.findOneAndUpdate(
+        { roomId },
+        patch,
+        { new: true }
+      );
+    }
+    // For other errors, re-throw
+    throw err;
+  }
 }
 
 // --- Socket.IO real-time collaboration ---
