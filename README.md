@@ -28,3 +28,16 @@ CodeSync is a real-time collaborative code editor where multiple users can join 
 - Socket.IO
 - MongoDB + Mongoose (with in-memory fallback when no DB is configured)
 
+## ⚠️ Known issue: can't type `c` on a Vercel deployment
+
+If you open a deployed copy of CodeSync (e.g. `*.vercel.app`) while logged into Vercel, the **Vercel Toolbar** is injected into the page. Its **Comment** tool is bound to the `c` key, so pressing `c` opens the comment `+` cursor instead of typing the letter `c`.
+
+This toolbar is added by Vercel at deploy time — it is **not** part of this repo's code, so it can't be removed by editing the app.
+
+**Fixes (pick one):**
+
+- **Keep the toolbar, free the key:** Toolbar → **Preferences → Keyboard Shortcuts → Comment**, then clear the binding or change it to a modifier combo (e.g. `Ctrl/Cmd + Shift + C`). Avoid a bare `?` — that just moves the problem and `?` is used constantly in JS/TS.
+- **This tab only:** Toolbar menu → **Disable for Session** (or press `Cmd/Ctrl` + `.`).
+- **Permanently:** Vercel Dashboard → your project → **Settings → General → Vercel Toolbar** → set **Preview** and **Production** to **Off**, save, then **redeploy**.
+- **Seeing it on `localhost` too?** That's the **Vercel browser extension** — disable it, or open it and turn off **Always Activate**.
+
