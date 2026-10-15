@@ -241,37 +241,6 @@ function CodeEditor() {
       <div className="editor-main">
         {/* Editor Section */}
         <section className="editor-column">
-          <div className="controls">
-            <label className="muted">Language:</label>
-            <select
-              className={`lang-select ${connected ? "" : "offline"}`}
-              value={language}
-              onChange={(e) => {
-                const newLang = e.target.value;
-                setLanguage(newLang);
-                if (editorRef.current) editorRef.current.setValue("");
-                if (socketRef.current?.connected) {
-                  socketRef.current.emit("code-change", { roomId, code: "", language: newLang });
-                }
-              }}
-            >
-              {LANGUAGES.map((lang) => (
-                <option key={lang} value={lang}>
-                  {lang === "javascript" ? "JavaScript" : "Python"}
-                </option>
-              ))}
-            </select>
-
-            <div className="controls-spacer" />
-
-            <span className="shortcut-hint">
-              <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to run
-            </span>
-
-            <button className="run-btn" onClick={runCode} disabled={running}>
-              {running ? "Running…" : "▶ Run"}
-            </button>
-          </div>
 
           <div className={`editor-wrapper ${editorReady ? "ready" : ""}`}>
             <MonacoEditor
